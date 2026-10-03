@@ -8,9 +8,8 @@ import lombok.*;
 @Setter
 @Builder
 public class UpdateLogoDto {
-    private byte[] bytes;
+    private long logoId;
     private String contentType;
     private String name;
     private long size;
-    private long storeId;
 }

@@ -14,15 +14,19 @@ import org.springframework.web.multipart.MultipartFile;
 import java.awt.print.Pageable;
 
 @RestController
-@RequestMapping("api/v1/store")
+@RequestMapping("/api/v1/store/")
 public class StoreController {
     private final IStore iStore;
     public StoreController(StoreService storeService){
         this.iStore=  storeService;
     }
     @PostMapping("create/")
-    public ResponseEntity<CreatedStoreDto>createStoreController(@RequestPart(name = "logo")MultipartFile logo,@RequestBody CreateStoreDto createStoreDto){
-        return ResponseEntity.status(HttpStatus.CREATED).body(iStore.createStoreService(logo,createStoreDto));
+    public ResponseEntity<CreatedStoreDto>createStoreController(@RequestBody CreateStoreDto createStoreDto){
+        return ResponseEntity.status(HttpStatus.CREATED).body(iStore.createStoreService(createStoreDto));
+    }
+    @PatchMapping("update/logo/{storeId}")
+    public ResponseEntity<?>updateStoreLogo(@RequestPart(name = "logo") MultipartFile logo, @PathVariable("storeId") long storeId){
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).body(iStore.updateStoreLogoService(logo,storeId));
     }
     @DeleteMapping("delete/{storeId}")
     public ResponseEntity<?>deleteStoreController(@PathVariable(name = "storeId")long storeId){
@@ -31,10 +35,6 @@ public class StoreController {
     @GetMapping("get/{storeId}")
     public ResponseEntity<?>getStoreByIdController(@PathVariable(name = "storeId")long storeId){
         return ResponseEntity.ok(iStore.gteStoreService(storeId));
-    }
-    @PatchMapping("update/{storeId}/logo")
-    public ResponseEntity<?>updateStoreLogoController(@PathVariable(name = "storeId")long storeId,@RequestPart(value = "logo") MultipartFile logo){
-        return ResponseEntity.ok(iStore.updateStoreLogoService(storeId,logo));
     }
     @PatchMapping ("update/{storeId}/data")
     public ResponseEntity<?>updateStoreFieldController(@PathVariable(name = "storeId")long storeId, @RequestBody UpdateStoreDto updateStoreDto){

@@ -1,13 +1,16 @@
 package com.example.store.service.implementaion;
 
+import com.example.store.client.StockFeignClient;
+import com.example.store.client.dto.CreateStockResponseDto;
+import com.example.store.model.StoreLogo;
 import com.example.store.model.dto.*;
 import com.example.store.model.Store;
-import com.example.store.model.StoreLogo;
 import com.example.store.repository.StoreRepo;
 import com.example.store.service.IStore;
-import com.example.store.service.exception.ImageSizeException;
 import com.example.store.service.exception.StoreNameAlreadyExistsException;
 import com.example.store.service.exception.StoreNotFoundException;
+import feign.FeignException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -18,23 +21,20 @@ import java.io.IOException;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class StoreService implements IStore {
     private final StoreRepo storeRepo;
-    public StoreService(StoreRepo storeRepo){
-        this.storeRepo=storeRepo;
-    }
+    private final StockFeignClient stockFeignClient;
+    private final IStoreImage iStoreImage;
     @Override
-    @Transactional
-    public CreatedStoreDto createStoreService(MultipartFile logo, CreateStoreDto createStoreDto) {
-            if (logo.getSize() > 10485760) {
-                throw new ImageSizeException("image size should be less then or equals 5 MB");
-            }
+    @Transactional(rollbackFor = FeignException.FeignClientException.class)
+    public CreatedStoreDto createStoreService( CreateStoreDto createStoreDto) {
+          //image size with valid and DTO
             if (storeRepo.existsByStoreName(createStoreDto.getStoreName())){
                 throw new StoreNameAlreadyExistsException("the store name: "+ createStoreDto.getStoreName() +" is already in use try an other store name");
             }
             try {
                 Store store = storeRepo.save(Store.builder()
-                        .storeLogo(StoreLogo.builder().logoBytes(logo.getBytes()).contentType(logo.getContentType()).name(logo.getName()).size(logo.getSize()).build())
                         .storeName(createStoreDto.getStoreName())
                         .bio(createStoreDto.getBio())
                         .city(createStoreDto.getCity())
@@ -42,20 +42,38 @@ public class StoreService implements IStore {
                         .email(createStoreDto.getEmail())
                         .phoneNumber(createStoreDto.getPhoneNumber())
                         .build());
-                return CreatedStoreDto.builder().storeId(store.getStoreId())
+                CreateStockResponseDto createStockResponseDto= stockFeignClient.createStock(store.getStoreId());
+                return CreatedStoreDto.builder()
+                        .storeId(store.getStoreId())
+                        .stockId(createStockResponseDto.getStockId())
                         .storeName(store.getStoreName())
                         .bio(store.getBio())
                         .city(store.getCity())
                         .country(store.getCountry())
                         .email(store.getEmail())
-                        .logo(store.getStoreLogo().getLogoBytes())
                         .phoneNumber(store.getPhoneNumber())
                         .build();
-
-            }catch (IOException exception){
+            }catch (Exception exception){
                 throw new RuntimeException("failed to create a store "+ exception.getMessage());
             }
     }
+
+    @Override
+    public UpdateLogoDto updateStoreLogoService(MultipartFile logo, long storeId) {
+        Store store =storeRepo.findById(storeId).orElseThrow(()->new StoreNotFoundException("Store Not Found failed to update the logo"));
+        try {
+            store.setStoreLogo(StoreLogo.builder()
+                    .logoBytes(logo.getBytes())
+                    .contentType(logo.getContentType())
+                    .size(logo.getSize())
+                    .name(logo.getName())
+                    .build());
+        } catch (IOException e) {
+            throw new RuntimeException(e.getMessage());
+        }
+       return iStoreImage.storeImage(store);
+    }
+
     @Override
     @Transactional(readOnly = true)
     public GetStoreDto gteStoreService(long storeId) {
@@ -85,23 +103,6 @@ public class StoreService implements IStore {
         throw new StoreNotFoundException("store not found");
     }
 
-    @Override
-    @Transactional
-    public UpdateLogoDto updateStoreLogoService(long storeId, MultipartFile logo) {
-        try {
-            Store store =storeRepo.findById(storeId).orElseThrow(()->new StoreNotFoundException("Not Found"));
-            store.setStoreLogo(StoreLogo.builder().storeLogoId(store.getStoreLogo().getStoreLogoId()).logoBytes(logo.getBytes()).size(logo.getSize()).name(logo.getName()).contentType(logo.getContentType()).build());
-            StoreLogo storeLogo= storeRepo.save(store).getStoreLogo();
-            return UpdateLogoDto.builder().bytes(storeLogo.getLogoBytes())
-                    .contentType(storeLogo.getContentType())
-                    .storeId(store.getStoreId())
-                    .name(storeLogo.getName())
-                    .size(storeLogo.getSize())
-                    .build();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
     @Override
     @Transactional
     public UpdatedStoreDto updateStoreDataService(long storeId, UpdateStoreDto updateStoreDto) {

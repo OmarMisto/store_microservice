@@ -29,6 +29,4 @@ public class Store {
     private String email;
     @Column(nullable = false,unique = true)
     private String phoneNumber;
-    @OneToMany(mappedBy ="store" ,cascade = CascadeType.ALL,fetch = FetchType.LAZY)
-    private ArrayList<Product> products;
 }

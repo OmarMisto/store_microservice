@@ -10,6 +10,7 @@ import lombok.*;
 @ToString
 public class CreatedStoreDto {
     private long storeId;
+    private long stockId;
     private byte[] logo;
     private String storeName;
     private String city;
